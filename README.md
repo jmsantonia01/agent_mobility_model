@@ -23,13 +23,13 @@ agent_mobility_model (root folder)
 ```
 
 ## Further developments
-[] - Use ML algorithms for synthetic population generation (XGBoost, LightGBM, RF)
-[] - Adjust synthetic population generator (not based on income)
-[] - Adjust travel preferences modeling scripts (travel_mode_model, mode_choice, travel_prefs)
-[] - Ensure consistency across scheduler, agent_state, building_assignment, net_anim, timeline_visuals
-[] - Integrate models, task hooks, routing_engine into simulation_engine
-[] - Adjust main model script for actual mobility simulation
-[] - Benchmark performance at 10 households OR 100 agents
-[] - Adjust main script for CUDA, parallel processing capabilities
-[] - Benchmark new performance with extended processing power
-[] - Implement across 10% sample
+-[] Use ML algorithms for synthetic population generation (XGBoost, LightGBM, RF)
+-[] Adjust synthetic population generator (not based on income)
+-[] Adjust travel preferences modeling scripts (travel_mode_model, mode_choice, travel_prefs)
+-[] Ensure consistency across scheduler, agent_state, building_assignment, net_anim, timeline_visuals
+-[] Integrate models, task hooks, routing_engine into simulation_engine
+-[] Adjust main model script for actual mobility simulation
+-[] Benchmark performance at 10 households OR 100 agents
+-[] Adjust main script for CUDA, parallel processing capabilities
+-[] Benchmark new performance with extended processing power
+-[] Implement across 10% sample
