@@ -14,6 +14,7 @@ PROJECT_ROOT = find_project_root()
 
 RAW_DATA_DIR = PROJECT_ROOT / "data/raw"
 PROCESSED_DATA_DIR = PROJECT_ROOT / "data/processed"
+CLEAN_DIR = PROJECT_ROOT / "data/clean"
 OUTPUT_DIR = PROJECT_ROOT / "data/output"
 RAW_CPH_DIR = RAW_DATA_DIR / "qc-cph"
 RAW_MUCEP_DIR = RAW_DATA_DIR / "qc-mucep"

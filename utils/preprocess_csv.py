@@ -67,7 +67,7 @@ def preprocess_cph():
         hhm["PSGC"] = hhm.apply(generate_psgc, axis=1) #Generate PSGC on HHM as well
         print("Barangay PSGC codes assigned.")
 
-                # PSGC assignment per household
+        # PSGC assignment per household
         print("🔍 Aggregating PSGC per household...")
         # Take the first (or most common) PSGC per [HOUSING_UNIT_NO, HH_NO]
         hh_psgc = (
@@ -91,11 +91,166 @@ def preprocess_cph():
         else:
             print("✅ Household keys are unique. Proceeding with merge.")
         
-            # --- Calculate HH_SIZE for CPH ---
+        # --- Calculate HH_SIZE for CPH ---
         print("Calculating HH_SIZE for CPH...")
         hh_size_cph = hhm.groupby(["HOUSING_UNIT_NO", "HH_NO"]).size().reset_index(name="HH_SIZE")
         hh = pd.merge(hh, hh_size_cph, on=["HOUSING_UNIT_NO", "HH_NO"], how="left")
         print("✅ HH_SIZE for CPH calculated.")
+
+        # --- Feature Engineering ---
+
+        # 1. Education Level
+
+        # Education Level Mapping
+        education_mapping = {
+            "000": "No Education",
+            "010": "Preschool",
+            "020": "Preschool",
+            "110": "Grade 1",
+            "111": "Grade 1",
+            "120": "Grade 2",
+            "121": "Grade 2",
+            "130": "Grade 3",
+            "131": "Grade 3",
+            "140": "Grade 4",
+            "141": "Grade 4",
+            "150": "Grade 5",
+            "151": "Grade 5",
+            "160": "Grade 6",
+            "161": "Grade 6",
+            "170": "Grade 6 Graduate",
+            "180": "Grade 7 Graduate",
+            "241": "Grade 7",
+            "242": "Grade 8",
+            "243": "Grade 9",
+            "244": "Grade 10",
+            "340": "Grade 11",
+            "350": "Grade 12",
+            "210": "High School",
+            "220": "High School",
+            "230": "High School",
+            "240": "High School",
+            "250": "High School Graduate",
+            "102": "Special Education",
+            "202": "Special Education",
+            "103": "Alternative Education",
+            "203": "Alternative Education",
+            "480": "Post-Secondary",
+            "400": "Post-Secondary",
+            "401": "Post-Secondary",
+            "402": "Post-Secondary",
+            "403": "Post-Secondary",
+            "404": "Post-Secondary",
+            "405": "Post-Secondary",
+            "406": "Post-Secondary",
+            "407": "Post-Secondary",
+            "408": "Post-Secondary",
+            "409": "Post-Secondary",
+            "410": "Post-Secondary",
+            "499": "Post-Secondary",
+            "580": "Tertiary",
+            "500": "Tertiary",
+            "501": "Tertiary",
+            "502": "Tertiary",
+            "503": "Tertiary",
+            "504": "Tertiary",
+            "505": "Tertiary",
+            "506": "Tertiary",
+            "507": "Tertiary",
+            "508": "Tertiary",
+            "509": "Tertiary",
+            "510": "Tertiary",
+            "599": "Tertiary",
+            "681": "College",
+            "682": "College",
+            "683": "College",
+            "684": "College",
+            "685": "College",
+            "686": "College",
+            "600": "Bachelor's Degree",
+            "601": "Bachelor's Degree",
+            "602": "Bachelor's Degree",
+            "603": "Bachelor's Degree",
+            "604": "Bachelor's Degree",
+            "605": "Bachelor's Degree",
+            "606": "Bachelor's Degree",
+            "607": "Bachelor's Degree",
+            "608": "Bachelor's Degree",
+            "609": "Bachelor's Degree",
+            "610": "Bachelor's Degree",
+            "699": "Bachelor's Degree",
+            "780": "Master's Degree",
+            "700": "Master's Degree",
+            "701": "Master's Degree",
+            "702": "Master's Degree",
+            "703": "Master's Degree",
+            "704": "Master's Degree",
+            "705": "Master's Degree",
+            "706": "Master's Degree",
+            "707": "Master's Degree",
+            "708": "Master's Degree",
+            "709": "Master's Degree",
+            "710": "Master's Degree",
+            "799": "Master's Degree",
+            "880": "Doctorate Degree",
+            "800": "Doctorate Degree",
+            "801": "Doctorate Degree",
+            "802": "Doctorate Degree",
+            "803": "Doctorate Degree",
+            "804": "Doctorate Degree",
+            "805": "Doctorate Degree",
+            "806": "Doctorate Degree",
+            "807": "Doctorate Degree",
+            "808": "Doctorate Degree",
+            "809": "Doctorate Degree",
+            "810": "Doctorate Degree",
+            "899": "Doctorate Degree",
+            "999": "Not Reported",
+        }
+
+        # Ensure EDUC_LEVEL is read as a string
+        hhm["EDUC_LEVEL"] = hhm["EDUC_LEVEL"].astype(str)
+
+        # Filter out rows with 'Not Reported' education
+        hhm_filtered = hhm[hhm['EDUC_LEVEL'] != "999"].copy()
+
+        # Map education levels
+        hhm_filtered['RECODED_EDUC_LEVEL'] = hhm_filtered['EDUC_LEVEL'].map(education_mapping)
+
+        # Handle NaN values (fill with an empty string for now, adjust as needed)
+        hhm_filtered['RECODED_EDUC_LEVEL'] = hhm_filtered['RECODED_EDUC_LEVEL'].fillna("")
+
+        household_max_education = hhm_filtered.groupby(["HOUSING_UNIT_NO", "HH_NO"])["RECODED_EDUC_LEVEL"].max().reset_index()
+        household_max_education.rename(columns={"RECODED_EDUC_LEVEL": "MAX_EDUC_LEVEL"}, inplace=True)
+        hh = pd.merge(hh, household_max_education, on=["HOUSING_UNIT_NO", "HH_NO"], how="left")
+
+        def mode(x):
+            return x.mode().iloc[0] if not x.mode().empty else None
+
+        household_dominant_education = hhm_filtered.groupby(["HOUSING_UNIT_NO", "HH_NO"])["RECODED_EDUC_LEVEL"].agg(mode).reset_index()
+        household_dominant_education.rename(columns={"RECODED_EDUC_LEVEL": "DOMINANT_EDUC_LEVEL"}, inplace=True)
+        hh = pd.merge(hh, household_dominant_education, on=["HOUSING_UNIT_NO", "HH_NO"], how="left")
+
+        # 2. Age
+        household_avg_age = hhm.groupby(["HOUSING_UNIT_NO", "HH_NO"])["AGE"].mean().reset_index()
+        household_avg_age.rename(columns={"AGE": "AVG_AGE"}, inplace=True)
+        hh = pd.merge(hh, household_avg_age, on=["HOUSING_UNIT_NO", "HH_NO"], how="left")
+
+        household_min_age = hhm.groupby(["HOUSING_UNIT_NO", "HH_NO"])["AGE"].min().reset_index()
+        household_min_age.rename(columns={"AGE": "MIN_AGE"}, inplace=True)
+        hh = pd.merge(hh, household_min_age, on=["HOUSING_UNIT_NO", "HH_NO"], how="left")
+
+        household_max_age = hhm.groupby(["HOUSING_UNIT_NO", "HH_NO"])["AGE"].max().reset_index()
+        household_max_age.rename(columns={"AGE": "MAX_AGE"}, inplace=True)
+        hh = pd.merge(hh, household_max_age, on=["HOUSING_UNIT_NO", "HH_NO"], how="left")
+
+        # 3. Sex
+        household_male_proportion = hhm.groupby(["HOUSING_UNIT_NO", "HH_NO"])["SEX"].apply(lambda x: (x == 1).mean()).reset_index()
+        household_male_proportion.rename(columns={"SEX": "MALE_PROPORTION"}, inplace=True)
+        hh = pd.merge(hh, household_male_proportion, on=["HOUSING_UNIT_NO", "HH_NO"], how="left")
+
+
+        print("✅ Attributes aggregated!")
 
         # Merge into HHM
         print("📌 Merging PSGC codes into HHM...")
@@ -155,37 +310,60 @@ def preprocess_mucep():
         print("Calculating HH_SIZE for MUCEP...")
         hh_size_mucep = qc_form2.groupby("household_no").size().reset_index(name="hh_size")
         mucep_form1 = pd.merge(qc_form1, hh_size_mucep, on="household_no", how="left")
-        print("✅ HH_SIZE for MUCEP calculated.")
+        print("✅ HH_SIZE for MUCEP calculated.") if 'hh_size' in mucep_form1.columns else print("⚠️ HH_SIZE not calculated.")
 
         # 1. Aggregate Education Level
         print("🔍 Aggregating education level per household...")
-        household_max_education = qc_form2.groupby(["HOUSING_UNIT_NO", "HH_NO"])["EDUC_LEVEL"].max().reset_index()
-        household_max_education.rename(columns={"EDUC_LEVEL": "MAX_EDUC_LEVEL"}, inplace=True)
-        hh = pd.merge(hh, household_max_education, on=["HOUSING_UNIT_NO", "HH_NO"], how="left")
-        household_avg_education = qc_form2.groupby(["HOUSING_UNIT_NO", "HH_NO"])["EDUC_LEVEL"].mean().reset_index()
-        household_avg_education.rename(columns={"EDUC_LEVEL": "AVG_EDUC_LEVEL"}, inplace=True)
-        hh = pd.merge(hh, household_avg_education, on=["HOUSING_UNIT_NO", "HH_NO"], how="left")
+        household_max_education = qc_form2.groupby(["household_no"])["6_occupation"].max().reset_index(name="max_educ_level")  # Changed EDUC_LEVEL to 6_occupation
+        household_max_education.rename(columns={"6_occupation": "max_educ_level"}, inplace=True)  # Changed EDUC_LEVEL to 6_occupation
+        mucep_form1 = pd.merge(mucep_form1, household_max_education, on=["household_no"], how="left")  # Changed hh to mucep_form1
+        household_avg_education = qc_form2.groupby(["household_no"])["6_occupation"].apply(lambda x: x.mode().iloc[0] if not x.mode().empty else None).reset_index(name="AVG_EDUC_LEVEL") #Changed EDUC_LEVEL to 6_occupation
+        household_avg_education.rename(columns={"6_occupation": "avg_educ_level"}, inplace=True) #Changed EDUC_LEVEL to 6_occupation
+        mucep_form1 = pd.merge(mucep_form1, household_avg_education, on=["household_no"], how="left") #Changed hh to mucep_form1
+        print("Aggregated educational level!") if 'hh_size' and 'max_educ_level' and 'avg_educ_level' in mucep_form1.columns else print("⚠️ EDUC_LEVEL not calculated.")
 
         # 2. Aggregate Age
         print("🔍 Aggregating age per household...")
-        household_avg_age = qc_form2.groupby(["HOUSING_UNIT_NO", "HH_NO"])["AGE"].mean().reset_index()
-        household_avg_age.rename(columns={"AGE": "AVG_AGE"}, inplace=True)
-        hh = pd.merge(hh, household_avg_age, on=["HOUSING_UNIT_NO", "HH_NO"], how="left")
+        household_avg_age = qc_form2.groupby(["household_no"])["2_age"].mean().reset_index(name="avg_age")  # Changed AGE to 2_age
+        mucep_form1 = pd.merge(mucep_form1, household_avg_age, on=["household_no"], how="left")  # Changed hh to mucep_form1
+        print("✅ AVG_AGE for MUCEP calculated.") if 'hh_size' and 'avg_age' in mucep_form1.columns else print("⚠️ AVG_AGE not calculated.")
 
-        household_max_age = qc_form2.groupby(["HOUSING_UNIT_NO", "HH_NO"])["AGE"].max().reset_index()
-        household_max_age.rename(columns={"AGE": "MAX_AGE"}, inplace=True)
-        hh = pd.merge(hh, household_max_age, on=["HOUSING_UNIT_NO", "HH_NO"], how="left")
+        household_max_age = qc_form2.groupby(["household_no"])["2_age"].max().reset_index(name="max_age")  # Changed AGE to 2_age
+        mucep_form1 = pd.merge(mucep_form1, household_max_age, on=["household_no"], how="left")  # Changed hh to mucep_form1
+        print("✅ MAX_AGE for MUCEP calculated.") if 'hh_size' and 'max_age' in mucep_form1.columns else print("⚠️ MAX_AGE not calculated.")
 
-        household_min_age = qc_form2.groupby(["HOUSING_UNIT_NO", "HH_NO"])["AGE"].min().reset_index()
-        household_min_age.rename(columns={"AGE": "MIN_AGE"}, inplace=True)
-        hh = pd.merge(hh, household_min_age, on=["HOUSING_UNIT_NO", "HH_NO"], how="left")
+        household_min_age = qc_form2.groupby(["household_no"])["2_age"].min().reset_index(name="min_age")  # Changed AGE to 2_age
+        mucep_form1 = pd.merge(mucep_form1, household_min_age, on=["household_no"], how="left")  # Changed hh to mucep_form1
+        print("✅ MIN_AGE for MUCEP calculated.") if 'hh_size' and 'min_age' in mucep_form1.columns else print("⚠️ MIN_AGE not calculated.")
 
         # 3. Aggregate Sex
         print("🔍 Aggregating sex at birth per household...")
-        household_male_proportion = qc_form2.groupby(["HOUSING_UNIT_NO", "HH_NO"])["SEX"].apply(lambda x: (x == 1).mean()).reset_index()
-        household_male_proportion.rename(columns={"SEX": "MALE_PROPORTION"}, inplace=True)
-        hh = pd.merge(hh, household_male_proportion, on=["HOUSING_UNIT_NO", "HH_NO"], how="left")
+        household_male_proportion = qc_form2.groupby(["household_no"])["3_gender"].apply(lambda x: (x == 1).mean()).reset_index(name="male_prop")  # Changed SEX to 3_gender
+        mucep_form1 = pd.merge(mucep_form1, household_male_proportion, on=["household_no"], how="left")  # Changed hh to mucep_form1
+        print("✅ MALE_PROP for MUCEP calculated.") if 'hh_size' and 'male_prop' in mucep_form1.columns else print("⚠️MALE_PROP not calculated.")
+
         print("✅ Attributes aggregated!")
+
+        # 1. Clean and Convert Income Data
+        print("Cleaning and converting income data...")
+
+        # Inspect (for debugging)
+        print(mucep_form1["4_monthly_hh_income"].unique()[:100])  # Limited unique values
+        print(mucep_form1["4_monthly_hh_income"].dtype)
+
+        # Convert to numeric, handling errors
+        mucep_form1["4_monthly_hh_income"] = pd.to_numeric(
+            mucep_form1["4_monthly_hh_income"], errors='coerce'
+        )
+
+        # Handle NaN values (fill with 1 - "No income")
+        mucep_form1["4_monthly_hh_income"] = mucep_form1["4_monthly_hh_income"].fillna(1).astype(int)
+
+        # Inspect after conversion
+        print(mucep_form1["4_monthly_hh_income"].unique()[:100])
+        print(mucep_form1["4_monthly_hh_income"].dtype)
+
+        print("Income data cleaned and converted.")
 
         print(f"✅ Filtered MUCEP Form 1: {len(qc_form1)} QC households")
         print(f"✅ Filtered MUCEP Form 2: {len(qc_form2)} QC members")
@@ -223,7 +401,7 @@ def preprocess_mucep():
         }, inplace=True)
 
         # ========== Save Cleaned Outputs ==========
-        qc_form1.to_csv(PROCESSED_DATA_DIR / "mucep_form1_qc.csv", index=False)
+        mucep_form1.to_csv(PROCESSED_DATA_DIR / "mucep_form1_qc.csv", index=False)
         qc_form2.to_csv(PROCESSED_DATA_DIR / "mucep_form2_qc.csv", index=False)
         qc_form3.to_csv(PROCESSED_DATA_DIR / "mucep_form3_qc.csv", index=False)
         print("✅ MUCEP Forms 1–3 cleaned and saved.")
@@ -236,5 +414,5 @@ def preprocess_mucep():
         sys.exit(1)
 
 if __name__ == "__main__":
-    preprocess_cph()
+#    preprocess_cph() # Uncomment this line to run CPH preprocessing, currently completed.
     preprocess_mucep()
